@@ -458,7 +458,7 @@ public class PicturePanel extends JPanel {
     }
 
     public void phansalkar(){
-        phansalkar(5,3,10,0.25,0.5);
+        phansalkar(15,3,10,0.25,0.5);
     }
 
     public void phansalkar(int N, int p, int q, double k, double R){
@@ -466,6 +466,8 @@ public class PicturePanel extends JPanel {
         int dy = image.getHeight();
         makeGray(image);
         // Calculate the radius of the neighbourhood
+        BufferedImage img = deepCopy(image);
+
         int radius = (N-1)/2;
         R = R * 256;
         for (int i = 0; i < dx; i++) {
@@ -490,16 +492,18 @@ public class PicturePanel extends JPanel {
 
                 int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
                 if(pixel < t )
-                    image.setRGB(i, j, 0x00000000 );
+                    img.setRGB(i, j, 0x00000000 );
                 else
-                    image.setRGB(i, j, 0x00FFFFFF );
+                    img.setRGB(i, j, 0x00FFFFFF );
             }
         }
+        image = img;
     }
     public void niblack(int N, double K){
         int dx = image.getWidth();
         int dy = image.getHeight();
         makeGray(image);
+        BufferedImage img = deepCopy(image);
         // Calculate the radius of the neighbourhood
         int radius = (N-1)/2;
 
@@ -520,15 +524,16 @@ public class PicturePanel extends JPanel {
                 double[] calcs = calculateSD(elements);
                 acc = calcs[0];
                 double sd = calcs[1];
-                int t = (int) Math.ceil((acc + (  K * sd )));
+                double t =  Math.ceil((acc + (  K * sd )));
 
                 int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
                 if(pixel < t )
-                    image.setRGB(i, j, 0x00000000 );
+                    img.setRGB(i, j, 0x00000000 );
                 else
-                    image.setRGB(i, j, 0x00FFFFFF );
+                    img.setRGB(i, j, 0x00FFFFFF );
             }
         }
+        image = img;
     }
 
     public void sauvola(int N, double K){
@@ -536,6 +541,7 @@ public class PicturePanel extends JPanel {
         int dx = image.getWidth();
         int dy = image.getHeight();
         makeGray(image);
+        BufferedImage img = deepCopy(image);
         // Calculate the radius of the neighbourhood
         int radius = (N-1)/2;
 
@@ -560,11 +566,20 @@ public class PicturePanel extends JPanel {
 
                 int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
                 if(pixel < t )
-                    image.setRGB(i, j, 0x00000000 );
+                    img.setRGB(i, j, 0x00000000 );
                 else
-                    image.setRGB(i, j, 0x00FFFFFF );
+                    img.setRGB(i, j, 0x00FFFFFF );
             }
         }
+
+        image = img;
+    }
+
+    static BufferedImage deepCopy(BufferedImage bi) {
+        ColorModel cm = bi.getColorModel();
+        boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
+        WritableRaster raster = bi.copyData(null);
+        return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
     }
 
     public static double[] calculateSD(ArrayList<Integer> numArray)
