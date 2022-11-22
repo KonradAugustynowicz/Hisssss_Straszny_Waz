@@ -3,6 +3,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+import static java.lang.Float.NaN;
 
 public class PicturePanel extends JPanel {
     Histogram histogram;
@@ -28,7 +32,7 @@ public class PicturePanel extends JPanel {
     public PicturePanel() throws IOException {
         setPreferredSize(new Dimension(500, 500));
         setSize(new Dimension(500, 500));
-        image = ImageIO.read((getClass().getResource("/apple_noise.png")));
+        image = ImageIO.read((getClass().getResource("/OtsuTest.png")));
         JLabel label = new JLabel("", new ImageIcon(image), 0);
         pixels = new int[image.getHeight()][image.getWidth()][3];
     }
@@ -51,9 +55,9 @@ public class PicturePanel extends JPanel {
                 g = (color & 0xff00) >> 8;
                 r = (color & 0xff0000) >> 16;
 
-                pixels[i][j][0] = r;
-                pixels[i][j][1] = g;
-                pixels[i][j][2] = b;
+                pixels[j][i][0] = r;
+                pixels[j][i][1] = g;
+                pixels[j][i][2] = b;
                 image.setRGB(i, j, c.getRGB());
             }
         }
@@ -250,6 +254,67 @@ public class PicturePanel extends JPanel {
         }
     }
 
+    public void dilatation() {
+        loadPicture();
+        for (int i = 0; i < image.getWidth(); i++) {
+            for (int j = 0; j < image.getHeight(); j++) {
+                int color = image.getRGB(i, j);
+                this.b = color & 0xff;
+                this.g = (color & 0xff00) >> 8;
+                this.r = (color & 0xff0000) >> 16;
+                image.setRGB(i, j, dilate(j, i).getRGB());
+            }
+        }
+    }
+
+    public Color dilate(int x, int y) {
+        for (int i = -1; i < 1; i++) {
+            for (int j = -1; j < 1; j++) {
+                try {
+                    if (pixels[x + i][y + j][0] == 0 &&
+                            pixels[x + i][y + j][1] == 0 &&
+                            pixels[x + i][y + j][2] == 0) {
+                        return Color.BLACK;
+                    }
+                } catch (IndexOutOfBoundsException e) {
+                    continue;
+                }
+            }
+        }
+        return Color.WHITE;
+    }
+
+    public void erosion() {
+        loadPicture();
+        for (int i = 0; i < image.getWidth(); i++) {
+            for (int j = 0; j < image.getHeight(); j++) {
+                int color = image.getRGB(i, j);
+                this.b = color & 0xff;
+                this.g = (color & 0xff00) >> 8;
+                this.r = (color & 0xff0000) >> 16;
+                image.setRGB(i, j, erode(j, i).getRGB());
+            }
+        }
+    }
+
+    public Color erode(int x, int y) {
+        for (int i = -1; i < 1; i++) {
+            for (int j = -1; j < 1; j++) {
+                try {
+                    if (pixels[x + i][y + j][0] == 255 &&
+                            pixels[x + i][y + j][1] == 255 &&
+                            pixels[x + i][y + j][2] == 255) {
+                        return Color.WHITE;
+                    }
+                } catch (IndexOutOfBoundsException e) {
+                    continue;
+                }
+            }
+        }
+        return Color.BLACK;
+    }
+
+
     public int selection(int startingAvg) {
         float avg = startingAvg;
         int lowAvg = 0;
@@ -257,7 +322,7 @@ public class PicturePanel extends JPanel {
         int highAvg = 1;
         int highCounter = 0;
 
-        while (lowAvg != highAvg) {
+        while (lowCounter != highCounter) {
             lowAvg = 0;
             lowCounter = 0;
             highAvg = 0;
@@ -309,7 +374,7 @@ public class PicturePanel extends JPanel {
     }
 
     public void reset() throws IOException {
-        image = ImageIO.read((getClass().getResource("problem.jpg")));
+        image = ImageIO.read((getClass().getResource("/OtsuTest.png")));
         paintComponent(getGraphics());
     }
 
