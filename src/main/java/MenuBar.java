@@ -10,11 +10,14 @@ public class MenuBar  extends JMenuBar implements ActionListener {
     JMenu morfologyMenu;
     JMenu binaryzationMenu;
     JMenu resetMenu;
+    JMenu tresholdMenu;
     PicturePanel pp;
 
     JMenuItem i1, i2, i3, i4, i5, i6;
     JMenuItem i7;
     JMenuItem i11, i12, i13, i14,i15;
+    JMenuItem b1, b2, b3, b4;
+
     public MenuBar(PicturePanel pp,Frame frame) {
         this.frame = frame;
         this.pp = pp;
@@ -22,7 +25,6 @@ public class MenuBar  extends JMenuBar implements ActionListener {
         histogramMenu = new JMenu("Filtr");
         morfologyMenu = new JMenu("Morfologia");
         binaryzationMenu = new JMenu("Binaryzacja");
-        resetMenu = new JMenu("Reset");
 
         i1 = new JMenuItem("Rozszerzenie histogramu");
         i2 = new JMenuItem("Wyrównanie histogramu");
@@ -45,8 +47,6 @@ public class MenuBar  extends JMenuBar implements ActionListener {
         i5.addActionListener(this);
         i6.addActionListener(this);
 
-        i7.addActionListener(this);
-
         i11.addActionListener(this);
         i12.addActionListener(this);
         i13.addActionListener(this);
@@ -56,24 +56,38 @@ public class MenuBar  extends JMenuBar implements ActionListener {
 
         histogramMenu.add(i1);
         histogramMenu.add(i2);
-        histogramMenu.add(i3);
-        histogramMenu.add(i4);
-        histogramMenu.add(i5);
-        histogramMenu.add(i6);
 
-        morfologyMenu.add(i7);
+        binaryzationMenu.add(i3);
+        binaryzationMenu.add(i4);
+        binaryzationMenu.add(i5);
+        binaryzationMenu.add(i6);
 
-        binaryzationMenu.add(i11);
-        binaryzationMenu.add(i12);
-        binaryzationMenu.add(i13);
-        binaryzationMenu.add(i14);
+        morfologyMenu.add(i11);
+        morfologyMenu.add(i12);
+        morfologyMenu.add(i13);
+        morfologyMenu.add(i14);
 
-        resetMenu.add(i15);
+        tresholdMenu = new JMenu("Zaawansowanych algorytmy binaryzacji");
+        b1 = new JMenuItem("Otsu");
+        b2 = new JMenuItem("Niblack");
+        b3 = new JMenuItem("Sauvola");
+        b4 = new JMenuItem("Phansalkar");
+
+        b1.addActionListener(this);
+        b2.addActionListener(this);
+        b3.addActionListener(this);
+        b4.addActionListener(this);
+
+        tresholdMenu.add(b1);
+        tresholdMenu.add(b2);
+        tresholdMenu.add(b3);
+        tresholdMenu.add(b4);
 
         this.add(histogramMenu);
         this.add(binaryzationMenu);
+        this.add(tresholdMenu);
         this.add(morfologyMenu);
-        this.add(resetMenu);
+        this.add(i15);
     }
 
     @Override
@@ -178,13 +192,49 @@ public class MenuBar  extends JMenuBar implements ActionListener {
             }
         }
         //reset
-        else if (e.getSource() == resetMenu) {
+        else if (e.getSource() == i15) {
             try {
                 pp.reset();
                 pp.initHistogramData();
                 frame.resetChartData();
             } catch (IOException ex) {
                 ex.printStackTrace();
+            }
+        }
+
+        if (e.getSource() == b1){
+            try {
+                pp.otsu();
+                frame.resetChartDataWithoutInitHistogram();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+
+        if (e.getSource() == b2){
+            try{
+                pp.niblack();
+                frame.resetChartDataWithoutInitHistogram();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
+        if (e.getSource() == b3){
+            try{
+                pp.sauvola();
+                frame.resetChartDataWithoutInitHistogram();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
+        if(e.getSource() == b4){
+            try{
+                pp.phansalkar();
+                frame.resetChartDataWithoutInitHistogram();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
             }
         }
 

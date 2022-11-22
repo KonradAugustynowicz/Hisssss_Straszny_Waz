@@ -1,12 +1,18 @@
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorConvertOp;
+import java.awt.image.ColorModel;
+import java.awt.image.WritableRaster;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import static java.lang.Float.NaN;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 
 public class PicturePanel extends JPanel {
     Histogram histogram;
@@ -14,7 +20,9 @@ public class PicturePanel extends JPanel {
     int r = 0;
     int g = 0;
     int b = 0;
-
+    protected int RADIX = 256;
+    int threshold;
+    static int[] gr_histogram = null;
     //
     int lowestR = 255;
     int lowestG = 255;
@@ -395,5 +403,236 @@ public class PicturePanel extends JPanel {
             blue = 0;
         }
         return new Color((int) red, (int) green, (int) blue);
+    }
+
+    public static void makeGray(BufferedImage img){
+        gr_histogram = new int[256];
+        for (int x = 0; x < img.getWidth(); ++x)
+            for (int y = 0; y < img.getHeight(); ++y){
+                int rgb = img.getRGB(x, y);
+                int b = rgb & 0xff;
+                int g = (rgb & 0xff00) >> 8;
+                int r = (rgb & 0xff0000) >> 16;
+
+                // Normalize and gamma correct:
+                double rr = Math.pow(r / 255.0, 2.2);
+                double gg = Math.pow(g / 255.0, 2.2);
+                double bb = Math.pow(b / 255.0, 2.2);
+
+                // Calculate luminance:
+                double lum = 0.2126 * rr + 0.7152 * gg + 0.0722 * bb;
+
+                // Gamma compand and rescale to byte range:
+                int grayLevel = (int) (255.0 * Math.pow(lum, 1.0 / 2.2));
+                int gray = (grayLevel << 16) + (grayLevel << 8) + grayLevel;
+                gr_histogram[grayLevel]++;
+                img.setRGB(x, y, gray);
+            }
+    }
+
+    private void withTreshold(BufferedImage img){
+        Color white = new Color(255, 255, 255);
+        Color black = new Color(0, 0, 0);
+        for (int x = 0; x < img.getWidth(); ++x)
+            for (int y = 0; y < img.getHeight(); ++y){
+                int rgb = img.getRGB(x, y);
+                int r = (rgb & 0xff0000) >> 16;
+                int grayLevel = r;
+                img.setRGB(x, y, grayLevel > threshold ? white.getRGB() : black.getRGB());
+            }
+        System.out.println("Threshold: " + threshold);
+    }
+    public void otsu(){
+        makeGray(image);
+        initHistogramData();
+        threshold();
+        withTreshold(image);
+        Graphics graphics = getGraphics();
+        graphics.drawImage(image, 0, 0, this.getWidth(), this.getHeight(), this);
+    }
+    public void niblack(){
+        niblack(15,-0.2);
+    }
+    public void sauvola(){
+        sauvola(15,0.5);
+    }
+
+    public void phansalkar(){
+        phansalkar(5,3,10,0.25,0.5);
+    }
+
+    public void phansalkar(int N, int p, int q, double k, double R){
+        int dx = image.getWidth();
+        int dy = image.getHeight();
+        makeGray(image);
+        // Calculate the radius of the neighbourhood
+        int radius = (N-1)/2;
+        R = R * 256;
+        for (int i = 0; i < dx; i++) {
+            for (int j = 0; j < dy; j++) {
+
+                double acc = 0;
+                ArrayList elements = new ArrayList();
+                for(int ji = -radius ; ji < radius ; ji++){
+                    for(int jj = -radius ; jj < radius ; jj++){
+                        // Zabezpieczenie aby nie wyjsc poza obraz i uzyskiwanie sredniej
+                        if(i+ji >= 0 && i+ji < dx)
+                            if(j+jj >= 0 && j+jj < dy){
+                                elements.add((image.getRGB(i+ji, j+jj) & 0x00ff0000) >> 16);
+                            }
+                    }
+                }
+                double[] calcs = calculateSD(elements);
+                acc = calcs[0];
+                double sd = calcs[1];
+                double ph = p * Math.exp(-q * acc);
+                int t = (int) Math.ceil((acc * (1 + ph + k * ((sd/R) - 1))));
+
+                int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
+                if(pixel < t )
+                    image.setRGB(i, j, 0x00000000 );
+                else
+                    image.setRGB(i, j, 0x00FFFFFF );
+            }
+        }
+    }
+    public void niblack(int N, double K){
+        int dx = image.getWidth();
+        int dy = image.getHeight();
+        makeGray(image);
+        // Calculate the radius of the neighbourhood
+        int radius = (N-1)/2;
+
+        for (int i = 0; i < dx; i++) {
+            for (int j = 0; j < dy; j++) {
+
+                double acc = 0;
+                ArrayList elements = new ArrayList();
+                for(int ji = -radius ; ji < radius ; ji++){
+                    for(int jj = -radius ; jj < radius ; jj++){
+                        // Zabezpieczenie aby nie wyjsc poza obraz i uzyskiwanie sredniej
+                        if(i+ji >= 0 && i+ji < dx)
+                            if(j+jj >= 0 && j+jj < dy){
+                                elements.add((image.getRGB(i+ji, j+jj) & 0x00ff0000) >> 16);
+                            }
+                    }
+                }
+                double[] calcs = calculateSD(elements);
+                acc = calcs[0];
+                double sd = calcs[1];
+                int t = (int) Math.ceil((acc + (  K * sd )));
+
+                int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
+                if(pixel < t )
+                    image.setRGB(i, j, 0x00000000 );
+                else
+                    image.setRGB(i, j, 0x00FFFFFF );
+            }
+        }
+    }
+
+    public void sauvola(int N, double K){
+        int R = 128;
+        int dx = image.getWidth();
+        int dy = image.getHeight();
+        makeGray(image);
+        // Calculate the radius of the neighbourhood
+        int radius = (N-1)/2;
+
+        for (int i = 0; i < dx; i++) {
+            for (int j = 0; j < dy; j++) {
+
+                double acc = 0;
+                ArrayList elements = new ArrayList();
+                for(int ji = -radius ; ji < radius ; ji++){
+                    for(int jj = -radius ; jj < radius ; jj++){
+                        // Zabezpieczenie aby nie wyjsc poza obraz i uzyskiwanie sredniej
+                        if(i+ji >= 0 && i+ji < dx)
+                            if(j+jj >= 0 && j+jj < dy){
+                                elements.add((image.getRGB(i+ji, j+jj) & 0x00ff0000) >> 16);
+                            }
+                    }
+                }
+                double[] calcs = calculateSD(elements);
+                acc = calcs[0];
+                double sd = calcs[1];
+                int t = (int) Math.ceil(acc * (1 + K * ((sd/R) - 1)));
+
+                int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
+                if(pixel < t )
+                    image.setRGB(i, j, 0x00000000 );
+                else
+                    image.setRGB(i, j, 0x00FFFFFF );
+            }
+        }
+    }
+
+    public static double[] calculateSD(ArrayList<Integer> numArray)
+    {
+        double[] calculations = new double[2];
+        double sum = 0.0, standardDeviation = 0.0;
+        int length = numArray.size();
+
+        for(double num : numArray) {
+            sum += num;
+        }
+
+        double mean = sum/length;
+        calculations[0] = mean;
+        for(double num: numArray) {
+            standardDeviation += Math.pow(num - mean, 2);
+        }
+        calculations[1] = Math.sqrt(standardDeviation/length);
+        return calculations;
+    }
+    private int sumIntensities(int[] gr_histogram) {
+        int sum = 0;
+        for (int i = 0; i < gr_histogram.length; i++)
+            sum += i * gr_histogram[i];
+        return sum;
+    }
+
+    protected void threshold() {
+        // get sum of all pixel intensities
+        int sum = sumIntensities(gr_histogram);
+
+        // perform Otsu's method
+        calcThreshold(gr_histogram, pixels.length * pixels[0].length, sum);
+    }
+    private void calcThreshold(int[] gr_histogram, int N, int sum) {
+        double variance;                                // objective function to maximize
+        double bestVariance = Double.NEGATIVE_INFINITY;
+
+        double mean_bg = 0;
+        double weight_bg = 0;
+
+        double mean_fg = (double) sum / (double) N;     // mean of population
+        double weight_fg = N;                           // weight of population
+
+        double diff_means;
+
+        // loop through all candidate thresholds
+        int t = 0;
+        while (t < RADIX) {
+            // calculate variance
+            diff_means = mean_fg - mean_bg;
+            variance = weight_bg * weight_fg * diff_means * diff_means;
+
+            // store best threshold
+            if (variance > bestVariance) {
+                bestVariance = variance;
+                threshold = t;
+            }
+
+            // go to next candidate threshold
+            while (t < RADIX && gr_histogram[t] == 0)
+                t++;
+
+            mean_bg = (mean_bg * weight_bg + gr_histogram[t] * t) / (weight_bg + gr_histogram[t]);
+            mean_fg = (mean_fg * weight_fg - gr_histogram[t] * t) / (weight_fg - gr_histogram[t]);
+            weight_bg += gr_histogram[t];
+            weight_fg -= gr_histogram[t];
+            t++;
+        }
     }
 }

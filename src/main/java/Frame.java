@@ -27,7 +27,42 @@ public class Frame extends JFrame {
 
         resetChartData();
     }
+    public void resetChartDataWithoutInitHistogram() throws IOException {
+        HistogramDataset dataset = new HistogramDataset();
+        pp.widenHistogram();
+        dataset.addSeries("key", pp.histogram.redData, 255);
+        dataset.addSeries("key", pp.histogram.blueData, 255);
+        dataset.addSeries("key", pp.histogram.greenData, 255);
 
+
+        JFreeChart histogram = ChartFactory.createHistogram(
+                "JFreeChart Histogram",
+                "Data",
+                "Frequency",
+                dataset,
+                PlotOrientation.VERTICAL,
+                false,
+                false,
+                false);
+        histogram.setBackgroundPaint(Color.white);
+
+        if (this.chartPanel == null){
+            this.chartPanel = new ChartPanel(histogram);
+            this.chartPanel.setPreferredSize(new Dimension(500, 500));
+            this.chartPanel.setSize(new Dimension(500, 500));
+            add(this.chartPanel);
+            revalidate();
+            repaint();
+        }else{
+            remove(this.chartPanel);
+            this.chartPanel = new ChartPanel(histogram);
+            this.chartPanel.setPreferredSize(new Dimension(500, 500));
+            this.chartPanel.setSize(new Dimension(500, 500));
+            add(this.chartPanel);
+            revalidate();
+            repaint();
+        }
+    }
     public void resetChartData() throws IOException {
         HistogramDataset dataset = new HistogramDataset();
         pp.widenHistogram();
