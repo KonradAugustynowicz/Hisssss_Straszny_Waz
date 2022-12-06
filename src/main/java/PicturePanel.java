@@ -12,7 +12,9 @@ import java.math.RoundingMode;
 
 import static java.lang.Float.NaN;
 import java.lang.reflect.Array;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class PicturePanel extends JPanel {
     Histogram histogram;
@@ -33,14 +35,23 @@ public class PicturePanel extends JPanel {
     int[] red = new int[256];
     int[] blue = new int[256];
     int[] green = new int[256];
-    //
 
+    public URL getImgPath() {
+        return imgPath;
+    }
+
+    public void setImgPath(URL imgPath) {
+        this.imgPath = imgPath;
+    }
+
+    //
+    URL imgPath = getClass().getResource("/OtsuTest.png");
     int[][][] pixels;
 
     public PicturePanel() throws IOException {
         setPreferredSize(new Dimension(500, 500));
         setSize(new Dimension(500, 500));
-        image = ImageIO.read((getClass().getResource("/OtsuTest.png")));
+        image = ImageIO.read((imgPath));
         JLabel label = new JLabel("", new ImageIcon(image), 0);
         pixels = new int[image.getHeight()][image.getWidth()][3];
     }
@@ -191,6 +202,35 @@ public class PicturePanel extends JPanel {
 
         Graphics graphics = getGraphics();
         graphics.drawImage(image, 0, 0, this.getWidth(), this.getHeight(), this);
+    }
+
+    public void entropySelection(){
+        makeGray(image);
+        int total = 0;
+        for (int value : gr_histogram) {
+            total += value;
+        }
+        double sum = 0.0;
+        for (int k : gr_histogram) {
+            if (k > 0) {
+                double p = k * 1.0 / total;
+                sum += p * Math.log(p);
+            }
+        }
+        int entropy = (int) Math.ceil(-total * sum / Math.log(2));
+        entropy = entropy & 0x00ff0000 >> 16;
+        for (int i = 0; i < image.getWidth(); i++) {
+            for (int j = 0; j < image.getHeight(); j++) {
+                int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
+                if (pixel > entropy)
+                    image.setRGB(i, j, Color.WHITE.getRGB());
+                else image.setRGB(i, j, Color.BLACK.getRGB());
+            }
+        }
+        paintComponent(getGraphics());
+    }
+
+    public void fuzzyMinimumError(){
     }
 
     public void cumulativeDistribuition() {
@@ -382,7 +422,7 @@ public class PicturePanel extends JPanel {
     }
 
     public void reset() throws IOException {
-        image = ImageIO.read((getClass().getResource("/OtsuTest.png")));
+        image = ImageIO.read(imgPath);
         paintComponent(getGraphics());
     }
 
@@ -459,6 +499,51 @@ public class PicturePanel extends JPanel {
 
     public void phansalkar(){
         phansalkar(15,3,10,0.25,0.5);
+    }
+
+    public void bernsen(){
+        bernsen(15, 15, "bright");
+    }
+
+    public void bernsen(int cmin, int N, String background) {
+        int dx = image.getWidth();
+        int dy = image.getHeight();
+        makeGray(image);
+        int K = background == "bright" ? 0 : 255;
+        BufferedImage img = deepCopy(image);
+        int radius = (N - 1) / 2;
+        for (int i = 0; i < dx; i++) {
+            for (int j = 0; j < dy; j++) {
+
+                int low = Integer.MAX_VALUE;
+                int high = Integer.MIN_VALUE;
+                for (int ji = -radius; ji < radius; ji++) {
+                    for (int jj = -radius; jj < radius; jj++) {
+                        // Zabezpieczenie aby nie wyjsc poza obraz i uzyskiwanie sredniej
+                        if (i + ji >= 0 && i + ji < dx)
+                            if (j + jj >= 0 && j + jj < dy) {
+                                int value = (image.getRGB(i + ji, j + jj) & 0x00ff0000) >> 16;
+                                if (value < low) {
+                                    low = value;
+                                }
+                                if (value > high) {
+                                    high = value;
+                                }
+                            }
+                    }
+                }
+                int bt = (int) ((low + high) / 2.0);
+                // Local contrast measure
+                int cl = high - low;
+                int t = cl > cmin ? bt : K;
+                int pixel = image.getRGB(i, j) & 0x00ff0000 >> 16;
+                if (pixel < t)
+                    img.setRGB(i, j, 0x00000000);
+                else
+                    img.setRGB(i, j, 0x00FFFFFF);
+            }
+        }
+        image = img;
     }
 
     public void phansalkar(int N, int p, int q, double k, double R){
